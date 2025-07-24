@@ -176,10 +176,10 @@ function donePlayers() {
         playerHTMLLine += '<td class="left">' + aPlayer.ParkName + '</td>';
         playerHTMLLine += '<td class="left">' + (aPlayer.classes.join(", ")) + '</td>';
 
-        // TEMPORARY change back to these after voting returns to normal
-        playerHTMLLine += '<td class="middle">' + (aPlayer.Waivered ? 'Waivered' : 'Sign Waiver') + '</td>';
-        playerHTMLLine += '<td class="middle">' + (aPlayer.DuesPaid ? aPlayer.DuesThrough : 'Pay Dues') + '</td>';
-        playerHTMLLine += '<td class="middle">' + attendanceNumber + '</td>';
+        // adding colors for vote/no
+        playerHTMLLine += '<td class="middle ' + (aPlayer.Waivered ? 'lightgreen' : 'lightred') + '">' + (aPlayer.Waivered ? 'Waivered' : 'Sign Waiver') + '</td>';
+        playerHTMLLine += '<td class="middle ' + (aPlayer.DuesPaid ? 'lightgreen' : 'lightred') + '">' + (aPlayer.DuesPaid ? aPlayer.DuesThrough : 'Pay Dues') + '</td>';
+        playerHTMLLine += '<td class="middle ' + (attendanceNumber ? 'lightgreen' : 'lightred') + '">' + attendanceNumber + '</td>';
 
         $('#playerTable').append(playerHTMLLine);
         playerContent += playerLine + '\r\n';
