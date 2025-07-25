@@ -63,19 +63,19 @@ function findParagons() {
             updateWorkingMessage();
             jsork.player.getLastAttendance(player.MundaneId).then(function (lastAttendance) {
                 if (lastAttendance.length > 0 && moment(lastAttendance[0].Date) >= startDate) {
-                    var playerWeeks = {};
+                    var playerDays = {};
                     jsork.player.getAttendanceFrom(player.MundaneId, startDate.format('MM/DD/YYYY')).then(function (allAttendance) {
                         allAttendance.forEach(function (attendance) {
                             if (moment(attendance.Date) <= today) {
                                 if (attendance.KingdomId === 17 || attendance.EventKingdomId === 17) {
-                                    if (!playerWeeks[moment(attendance.Date).isoWeekday(1).week()]) {
-                                        playerWeeks[moment(attendance.Date).isoWeekday(1).week()] = [];
+                                    if (!playerDays[moment(attendance.Date).isoWeekday(1)]) {
+                                        playerDays[moment(attendance.Date).isoWeekday(1)] = [];
                                     }
-                                    playerWeeks[moment(attendance.Date).isoWeekday(1).week()].push(attendance);
+                                    playerDays[moment(attendance.Date).isoWeekday(1)].push(attendance);
                                 }
                             }
                         });
-                        if (Object.keys(playerWeeks).length >= 0) {
+                        if (Object.keys(playerDays).length >= 0) {
                             jsork.player.getInfo(player.MundaneId).then(function (playerInfo) {
                                 if (!playerInfo.Suspended) {
                                     playerList.push({
@@ -85,7 +85,7 @@ function findParagons() {
                                         DuesThrough: playerInfo.DuesThrough,
                                         DuesPaid: moment(playerInfo.DuesThrough) > moment(),
                                         Waivered: playerInfo.Waivered !== 0,
-                                        attendance: playerWeeks,
+                                        attendance: playerDays,
                                         classes: [... new Set(player.classes)],
                                         ParkName: player.ParkName
                                     });
@@ -98,7 +98,7 @@ function findParagons() {
                         } else {
                             $('.working').text('Number of players left to check ' + playersLeft);
                             if (--playersLeft <= 0) {
-                                checkFirstAttendance();
+                                checkParkMemberSince();
                             }
                         }
                     })
@@ -113,12 +113,39 @@ function findParagons() {
     });
 }
 
+
+function checkParkMemberSince() {
+    var playersLeft = playerList.length;
+    if (playerList.length === 0) {
+        donePlayers();
+    } else {
+        $('.working').text('Checking park membership date....');
+        playerList.forEach(function (aPlayer) {
+            aPlayer.ParkMemberSince.then(function (attendance) {
+                if (moment(attendance) <= startDate) {
+                    aPlayer.sixMonthsPlayed = true;
+                } else {
+                    aPlayer.sixMonthsPlayed = false;
+                }
+                if (attendance == "Check Membership"){
+                    aPlayer.sixMonthsPlayed = false;   
+                }
+                $('.working').text('Number of players left to check first attendance ' + playersLeft);
+                if (--playersLeft <= 0) {
+                    donePlayers();
+                }
+            });
+        });
+    }
+}
+
+
 function checkFirstAttendance() {
     var playersLeft = playerList.length;
     if (playerList.length === 0) {
         donePlayers();
     } else {
-        $('.working').text('Checking first attendance date....');
+        $('.working').text('Checking Park Membership date....');
         playerList.forEach(function (aPlayer) {
             jsork.player.getFirstAttendance(aPlayer.MundaneId).then(function (attendance) {
                 if (moment(attendance[0].Date) <= startDate) {
@@ -127,7 +154,7 @@ function checkFirstAttendance() {
                     aPlayer.sixMonthsPlayed = false;
                 }
                 aPlayer.firstAttendance = attendance[0].Date;
-                $('.working').text('Number of players left to check first attendance ' + playersLeft);
+                $('.working').text('Number of players left to check Park Membership Date ' + playersLeft);
                 if (--playersLeft <= 0) {
                     donePlayers();
                 }
@@ -143,18 +170,20 @@ function donePlayers() {
         $('.noplayers').text('There are no players returned in the results');
         return;
     }
-    playerList = playerList.filter(function(aPlayer) { 
-        return Object.keys(aPlayer.attendance).length >= 6 && aPlayer.sixMonthsPlayed;
-    })
-    playerList.sort(function (a, b) {
-        var personaSort = a.Persona.toLowerCase().localeCompare(b.Persona.toLowerCase());
-        var canVoteA = Object.keys(a.attendance).length >= 6 && a.sixMonthsPlayed;
-        var canVoteB = Object.keys(b.attendance).length >= 6 && b.sixMonthsPlayed;
-        if (canVoteA === canVoteB) {
-            return personaSort;
-        }
-        return canVoteB ? 1 : -1;
-    });
+    // playerList = playerList.filter(function(aPlayer) { 
+    //     return Object.keys(aPlayer.attendance).length >= 6 && aPlayer.sixMonthsPlayed;
+    // })
+    // don't filter on it, tabulate it
+
+    // playerList.sort(function (a, b) {
+    //     var personaSort = a.Persona.toLowerCase().localeCompare(b.Persona.toLowerCase());
+    //     var canVoteA = Object.keys(a.attendance).length >= 6 && a.sixMonthsPlayed;
+    //     var canVoteB = Object.keys(b.attendance).length >= 6 && b.sixMonthsPlayed;
+    //     if (canVoteA === canVoteB) {
+    //         return personaSort;
+    //     }
+    //     return canVoteB ? 1 : -1;
+    // });
     var lastPlayer = null;
     playerList.forEach(function (aPlayer) {
         var playerHTMLLine = '';
@@ -179,7 +208,9 @@ function donePlayers() {
         // adding colors for vote/no
         playerHTMLLine += '<td class="middle ' + (aPlayer.Waivered ? 'lightgreen' : 'lightred') + '">' + (aPlayer.Waivered ? 'Waivered' : 'Sign Waiver') + '</td>';
         playerHTMLLine += '<td class="middle ' + (aPlayer.DuesPaid ? 'lightgreen' : 'lightred') + '">' + (aPlayer.DuesPaid ? aPlayer.DuesThrough : 'Pay Dues') + '</td>';
-        playerHTMLLine += '<td class="middle ' + (attendanceNumber ? 'lightgreen' : 'lightred') + '">' + attendanceNumber + '</td>';
+        playerHTMLLine += '<td class="middle ' + (attendanceNumber > 5 ? 'lightgreen' : 'lightred') + '">' + attendanceNumber + '</td>';
+        // playerHTMLLine += '<td class="middle ' + (aPlayer.sixMonthsPlayed ? 'lightgreen' : 'lightred') + '">' + aPlayer.ParkMemberSince  + '</td>';
+
 
         $('#playerTable').append(playerHTMLLine);
         playerContent += playerLine + '\r\n';
@@ -203,7 +234,7 @@ function copyTextToClipboard(str) {
 }
 
 function copyToClipboard() {
-    var allCSV = 'Persona\tPark\tParagon Classes\tWaivered\tDues Paid\tWeeks of Attendance\r\n';
+    var allCSV = 'Persona\tPark\tParagon Classes\tWaivered\tDues Paid\tDays of Attendance\r\n';
     allCSV += playerContent;
     copyTextToClipboard(allCSV);
 }
